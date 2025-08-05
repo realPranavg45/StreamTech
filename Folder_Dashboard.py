@@ -265,7 +265,7 @@ your-repo/
                 st.rerun()
         
         st.markdown("---")
-        st.caption(f"🕐 **Last scan:** {time.strftime('%H:%M:%S')}")
+        
 
 # Main content area
 if st.session_state.selected_file:
@@ -311,3 +311,4 @@ else:
 
 # Footer
 st.markdown("---")
+
