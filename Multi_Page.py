@@ -7,7 +7,7 @@ import streamlit as st
 pg = st.navigation([
     st.Page("Test_compare.py", title="🔍 Compare Data"),
     st.Page("Test_dataframe.py", title="📊 Dataframe Viewer"),
-    st.Page("Test_Delete.py", title="🗑️ Delete Records"),
+    st.Page("Test_delete.py", title="🗑️ Delete Records"),
     st.Page("Test_email_backend.py", title="📧 Email Backend"),
     st.Page("Test_get_data.py", title="📥 Fetch Data"),
     st.Page("Test_google_api.py", title="🌐 Google API Integration"),
@@ -17,3 +17,4 @@ pg = st.navigation([
 
 
 pg.run()
+
