@@ -1,6 +1,7 @@
 import streamlit as st
 from email_backend import get_email_service
 import os
+import streamlit as st
 
 # Initialize the backend
 email_service = get_email_service()
@@ -121,12 +122,15 @@ def home_page():
             submit = st.form_submit_button("Send Email")
 
             if submit:
-                login_creds = {
-                    "email": os.getenv("SYSTEM_EMAIL"),
-                    "password": os.getenv("SYSTEM_EMAIL_PASSWORD"),
-                    "smtp_server": os.getenv("SYSTEM_SMTP_SERVER", "smtp.gmail.com"),
-                    "smtp_port": os.getenv("SYSTEM_SMTP_PORT", "587")
+                
+...
+                system_email_creds = {
+                    "email": st.secrets["SYSTEM_EMAIL"],
+                    "password": st.secrets["SYSTEM_EMAIL_PASSWORD"],
+                    "smtp_server": st.secrets.get("SYSTEM_SMTP_SERVER", "smtp.gmail.com"),
+                    "smtp_port": st.secrets.get("SYSTEM_SMTP_PORT", "587")
                 }
+
 
                 attachment_paths = []
                 if attachments:
@@ -181,3 +185,4 @@ elif st.session_state.page == "Verify OTP":
     otp_page()
 elif st.session_state.page == "Home":
     home_page()
+
