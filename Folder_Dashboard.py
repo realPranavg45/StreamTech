@@ -298,13 +298,13 @@ if st.session_state.selected_file:
                                 if install_proc.returncode != 0:
                                     st.session_state.run_error = "pip install failed. See logs above."
                                     st.session_state.runner = None
-                                    st.experimental_rerun()
+                                    st.rerun()
                             except subprocess.TimeoutExpired:
                                 st.session_state.run_error = "pip install timed out."
-                                st.experimental_rerun()
+                                st.rerun()
                             except Exception as e:
                                 st.session_state.run_error = f"pip install error: {e}"
-                                st.experimental_rerun()
+                                st.rerun()
                         else:
                             st.session_state.execution_lines.append("[runner] No requirements.txt found; skipping install.")
 
@@ -319,7 +319,7 @@ if st.session_state.selected_file:
                         st.session_state.run_error = f"Failed to start process: {e}"
                         st.session_state.runner = None
 
-                    st.experimental_rerun()
+                    st.rerun()
 
             # Execution area: live logs + controls
             st.markdown("### 🚀 Execution")
@@ -340,7 +340,7 @@ if st.session_state.selected_file:
                         except Exception as e:
                             st.session_state.execution_lines.append(f"[runner] Error while terminating: {e}")
                         st.session_state.runner = None
-                        st.experimental_rerun()
+                        st.rerun()
                 else:
                     st.button("⏺️ Not running", disabled=True, key="not_running_btn")
 
@@ -361,14 +361,14 @@ if st.session_state.selected_file:
                     # trim history to reasonable size
                     if len(st.session_state.execution_lines) > 5000:
                         st.session_state.execution_lines = st.session_state.execution_lines[-2000:]
-                    st.experimental_rerun()  # re-render to show updated logs
+                    st.rerun()  # re-render to show updated logs
 
                 # Check if process finished
                 if not runner.is_running():
                     rc = runner.proc.returncode if runner.proc else None
                     st.session_state.execution_lines.append(f"[runner] Process finished with return code: {rc}")
                     st.session_state.runner = None
-                    st.experimental_rerun()
+                    st.rerun()
 
             if st.session_state.run_error:
                 st.error(st.session_state.run_error)
@@ -421,3 +421,4 @@ else:
 # Footer + housekeeping
 st.markdown("---")
 st.caption("⚠️ Running code executes in a subprocess on this machine. Use only with trusted code. For production, run inside a container/VM.")
+
