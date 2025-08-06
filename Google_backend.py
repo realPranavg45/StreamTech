@@ -81,16 +81,27 @@ class DateEventsResponse(BaseModel):
 # ------------------- Configuration -------------------
 class BackendConfig:
     def __init__(self):
-        self.GOOGLE_CLIENT_ID = "---"
-        self.GOOGLE_CLIENT_SECRET = "---"
-        self.REDIRECT_URI = "---"
-        self.SUPABASE_API_URL = os.getenv("SUPABASE_API_URL")
-        self.SUPABASE_API_KEY = os.getenv("SUPABASE_API_KEY")
-        self.SMTP_SERVER = os.getenv("SMTP_SERVER")
-        self.SMTP_PORT = int(os.getenv("SMTP_PORT", 587))
-        self.SMTP_USERNAME = os.getenv("SMTP_USERNAME")
-        self.SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
-        self.EMAIL_FROM = os.getenv("EMAIL_FROM")
+        self.GOOGLE_CLIENT_ID = _get_secret("GOOGLE_CLIENT_ID", "---")
+        self.GOOGLE_CLIENT_SECRET = _get_secret("GOOGLE_CLIENT_SECRET", "---")
+        self.REDIRECT_URI = _get_secret("REDIRECT_URI", "---")
+
+        # Supabase
+        self.SUPABASE_API_URL = _get_secret("SUPABASE_API_URL")
+        self.SUPABASE_API_KEY = _get_secret("SUPABASE_API_KEY")
+
+        # SMTP / System email
+        self.SMTP_SERVER = _get_secret("SMTP_SERVER", "smtp.gmail.com")
+        # cast to int safely
+        smtp_port_raw = _get_secret("SMTP_PORT", "587")
+        try:
+            self.SMTP_PORT = int(smtp_port_raw)
+        except (TypeError, ValueError):
+            self.SMTP_PORT = 587
+
+        self.SMTP_USERNAME = _get_secret("SMTP_USERNAME")
+        self.SMTP_PASSWORD = _get_secret("SMTP_PASSWORD")
+        self.EMAIL_FROM = _get_secret("EMAIL_FROM")
+
         
         # Initialize Supabase client
         try:
@@ -1207,3 +1218,4 @@ class BackendService:
 
 # Global backend service instance
 backend_service = BackendService()
+
