@@ -22,8 +22,7 @@ import hashlib
 import secrets
 import re
 import bcrypt
-
-
+from pydantic import BaseModel, EmailStr, ValidationError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -892,4 +891,5 @@ if __name__ == "__main__":
     
 
     print(json.dumps(result, indent=2))
+
 
