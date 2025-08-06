@@ -2,6 +2,7 @@ import streamlit as st
 from email_backend import get_email_service
 import os
 import streamlit as st
+from pydantic import BaseModel, EmailStr, ValidationError
 
 # Initialize the backend
 email_service = get_email_service()
@@ -185,5 +186,6 @@ elif st.session_state.page == "Verify OTP":
     otp_page()
 elif st.session_state.page == "Home":
     home_page()
+
 
 
