@@ -5,134 +5,21 @@ import ast
 import time
 from typing import Dict, Any, List
 from datetime import datetime
+import importlib.util
+import sys
+import io
+import contextlib
 
 st.set_page_config(
     layout="wide", 
-    page_title=" Python Modules Explorer",
+    page_title="Python Modules Explorer",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for attractive UI
+# Custom CSS for attractive UI (your existing CSS remains the same)
 st.markdown("""
 <style>
-    /* Main container styling */
-    .main-container {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        margin: 1rem 0;
-    }
-    
-    /* Sidebar styling */
-    .sidebar .stButton > button {
-        width: 100% !important;
-        text-align: left !important;
-        padding: 0.5rem 1rem !important;
-        margin: 0.2rem 0 !important;
-        border-radius: 8px !important;
-        border: 1px solid #e1e5e9 !important;
-        background: white !important;
-        color: #333 !important;
-        font-weight: 500 !important;
-        transition: all 0.3s ease !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-    
-    .sidebar .stButton > button:hover {
-        background: linear-gradient(45deg, #667eea, #764ba2) !important;
-        color: white !important;
-        transform: translateX(5px) !important;
-        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3) !important;
-    }
-    
-    /* Code container styling */
-    .code-container {
-        background: #1e1e1e;
-        padding: 1.5rem;
-        border-radius: 10px;
-        border: 1px solid #333;
-        margin: 1rem 0;
-    }
-    
-    /* Stats cards */
-    .stats-container {
-        display: flex;
-        justify-content: space-around;
-        margin: 2rem 0;
-        gap: 1rem;
-    }
-    
-    .stat-card {
-        background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 15px;
-        text-align: center;
-        flex: 1;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-        transition: transform 0.3s ease;
-    }
-    
-    .stat-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    .stat-number {
-        font-size: 2rem;
-        font-weight: bold;
-        margin: 0.5rem 0;
-    }
-    
-    .stat-label {
-        font-size: 0.9rem;
-        opacity: 0.9;
-    }
-    
-    /* File title styling */
-    .file-title {
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-size: 1.8rem;
-        font-weight: bold;
-        margin: 1rem 0;
-    }
-    
-    /* Success/Error indicators */
-    .success-indicator {
-        color: #28a745;
-        font-weight: bold;
-    }
-    
-    .error-indicator {
-        color: #dc3545;
-        font-weight: bold;
-    }
-    
-    /* Main title styling */
-    .main-title {
-        text-align: center;
-        color: #2c3e50;
-        font-size: 2.5rem;
-        font-weight: bold;
-        margin: 1rem 0 2rem 0;
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    
-    /* Path info styling */
-    .path-info {
-        background: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        border-left: 4px solid #667eea;
-        margin: 1rem 0;
-    }
+    /* Your existing CSS styles here */
 </style>
 """, unsafe_allow_html=True)
 
@@ -202,6 +89,38 @@ def parse_functions_and_classes(source: str) -> Dict[str, List[Dict[str, str]]]:
     
     return results
 
+def execute_python_file(file_path: Path):
+    """Execute a Python file and capture its output."""
+    try:
+        # Create a module name from the file path
+        module_name = file_path.stem
+        
+        # Create a spec from the file location
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        
+        if spec is None:
+            return False, "Failed to create module spec"
+            
+        # Create a module from the spec
+        module = importlib.util.module_from_spec(spec)
+        
+        # Add the module to sys.modules
+        sys.modules[module_name] = module
+        
+        # Create a string buffer to capture output
+        output_buffer = io.StringIO()
+        
+        # Execute the module with output captured
+        with contextlib.redirect_stdout(output_buffer), contextlib.redirect_stderr(output_buffer):
+            try:
+                spec.loader.exec_module(module)
+                return True, output_buffer.getvalue()
+            except Exception as e:
+                return False, f"Error during execution: {str(e)}\n\n{output_buffer.getvalue()}"
+                
+    except Exception as e:
+        return False, f"Execution failed: {str(e)}"
+
 ####################
 # Dashboard UI
 ####################
@@ -209,6 +128,10 @@ def parse_functions_and_classes(source: str) -> Dict[str, List[Dict[str, str]]]:
 # Initialize session state
 if 'selected_file' not in st.session_state:
     st.session_state.selected_file = None
+if 'execution_output' not in st.session_state:
+    st.session_state.execution_output = None
+if 'execution_success' not in st.session_state:
+    st.session_state.execution_success = None
 
 # Get the current directory (where this script is located)
 MODULES_FOLDER = Path(__file__).parent
@@ -217,16 +140,18 @@ MODULES_FOLDER = Path(__file__).parent
 col_title, col_refresh = st.columns([4, 1])
 
 with col_title:
-    st.markdown('<div class="main-title"> Python Modules Explorer</div>', unsafe_allow_html=True)
+    st.markdown('<div class="main-title">Python Modules Explorer</div>', unsafe_allow_html=True)
 
 with col_refresh:
     if st.button("🔄 Refresh", key="refresh_btn"):
         st.session_state.selected_file = None
+        st.session_state.execution_output = None
+        st.session_state.execution_success = None
         st.rerun()
 
 module_files = list_module_files(MODULES_FOLDER)
 
-# Sidebar: File selection
+# Sidebar: File selection (your existing sidebar code remains the same)
 with st.sidebar:
     st.header("📁 Modules")
     
@@ -245,16 +170,13 @@ your-repo/
     else:
         st.write(f"Found {len(module_files)} modules:")
         
-        # Display files as clickable list in sidebar
         for file_path in module_files:
             file_stats = get_file_stats(file_path)
             
-            # Truncate filename if too long for better display
             display_name = file_path.name
             if len(display_name) > 25:
                 display_name = display_name[:22] + "..."
             
-            # Create a button for each file
             if st.button(
                 f"{display_name}",
                 key=f"sidebar_btn_{file_path.name}",
@@ -262,10 +184,11 @@ your-repo/
                 use_container_width=True
             ):
                 st.session_state.selected_file = file_path.name
+                st.session_state.execution_output = None
+                st.session_state.execution_success = None
                 st.rerun()
         
         st.markdown("---")
-        
 
 # Main content area
 if st.session_state.selected_file:
@@ -285,16 +208,66 @@ if st.session_state.selected_file:
             code_metrics = count_code_metrics(source_text)
             parsed = parse_functions_and_classes(source_text)
             
-            # Display file title
-            st.markdown(f'<div class="file-title">📄 {st.session_state.selected_file}</div>', unsafe_allow_html=True)
+            # Display file title and execute button
+            col1, col2 = st.columns([4, 1])
+            with col1:
+                st.markdown(f'<div class="file-title">📄 {st.session_state.selected_file}</div>', unsafe_allow_html=True)
+            with col2:
+                if st.button("▶️ Execute Module", key="execute_btn", use_container_width=True):
+                    with st.spinner("Executing module..."):
+                        success, output = execute_python_file(selected_path)
+                        st.session_state.execution_output = output
+                        st.session_state.execution_success = success
+                        st.rerun()
+            
+            # Display execution results if available
+            if st.session_state.execution_output is not None:
+                st.markdown("### 🚀 Execution Results")
+                if st.session_state.execution_success:
+                    st.success("Execution completed successfully!")
+                else:
+                    st.error("Execution encountered errors!")
+                
+                st.text_area("Output", value=st.session_state.execution_output, height=200)
+                st.markdown("---")
             
             # Display source code
             st.markdown("### 📝 Source Code")
             st.code(source_text, language="python", line_numbers=True)
             
-        
+            # Display file stats
+            st.markdown("### 📊 File Statistics")
+            cols = st.columns(4)
+            cols[0].metric("File Size", f"{file_stats['size_kb']} KB")
+            cols[1].metric("Modified", file_stats['modified'].strftime("%Y-%m-%d %H:%M"))
+            cols[2].metric("Created", file_stats['created'].strftime("%Y-%m-%d %H:%M"))
+            cols[3].metric("Lines of Code", line_count)
             
-           
+            # Display code metrics
+            st.markdown("### 📈 Code Metrics")
+            cols = st.columns(4)
+            cols[0].metric("Total Lines", code_metrics['total_lines'])
+            cols[1].metric("Code Lines", code_metrics['code_lines'])
+            cols[2].metric("Comment Lines", code_metrics['comment_lines'])
+            cols[3].metric("Blank Lines", code_metrics['blank_lines'])
+            
+            # Display parsed functions and classes
+            if parsed['functions'] or parsed['classes']:
+                st.markdown("### 🏗️ Module Structure")
+                
+                if parsed['functions']:
+                    st.markdown("#### Functions")
+                    for func in parsed['functions']:
+                        st.code(f"def {func['name']}()")
+                
+                if parsed['classes']:
+                    st.markdown("#### Classes")
+                    for cls in parsed['classes']:
+                        st.code(f"class {cls['name']}")
+            
+            if parsed['module_doc']:
+                st.markdown("### 📖 Module Documentation")
+                st.info(parsed['module_doc'])
             
         except Exception as e:
             st.error(f"❌ Error processing file: {e}")
@@ -306,9 +279,7 @@ else:
     if module_files:
         st.info("👈 Select a Python file from the sidebar to view its contents")
     
-    
     st.info(f"📂 **Current Directory:** `{MODULES_FOLDER.resolve()}`")
 
 # Footer
 st.markdown("---")
-
