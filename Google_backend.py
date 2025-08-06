@@ -15,7 +15,14 @@ import supabase
 import traceback
 import calendar
 
-
+def _get_secret(key: str, default=None):
+    """Get from Streamlit secrets or fallback to environment variables."""
+    try:
+        if key in st.secrets:
+            return st.secrets[key]
+    except Exception:
+        pass
+    return os.getenv(key, default)
 
 # ------------------- Models -------------------
 class MeetingData(BaseModel):
@@ -1218,5 +1225,6 @@ class BackendService:
 
 # Global backend service instance
 backend_service = BackendService()
+
 
 
