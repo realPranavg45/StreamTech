@@ -124,7 +124,7 @@ def home_page():
             if submit:
                 
 ...
-                system_email_creds = {
+                login_creds = {
                     "email": st.secrets["SYSTEM_EMAIL"],
                     "password": st.secrets["SYSTEM_EMAIL_PASSWORD"],
                     "smtp_server": st.secrets.get("SYSTEM_SMTP_SERVER", "smtp.gmail.com"),
@@ -185,4 +185,5 @@ elif st.session_state.page == "Verify OTP":
     otp_page()
 elif st.session_state.page == "Home":
     home_page()
+
 
