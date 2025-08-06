@@ -432,10 +432,10 @@ class EmailService:
             # Use system email service to send OTP
             # Note: This requires system email credentials to be configured
             system_email_creds = {
-                "email": os.getenv("SYSTEM_EMAIL"),
-                "password": os.getenv("SYSTEM_EMAIL_PASSWORD"),
-                "smtp_server": os.getenv("SYSTEM_SMTP_SERVER", "smtp.gmail.com"),
-                "smtp_port": os.getenv("SYSTEM_SMTP_PORT", "587")
+                "email": st.secrets["SYSTEM_EMAIL"],
+                "password": st.secrets["SYSTEM_EMAIL_PASSWORD"],
+                "smtp_server": st.secrets.get("SYSTEM_SMTP_SERVER", "smtp.gmail.com"),
+                "smtp_port": st.secrets.get("SYSTEM_SMTP_PORT", "587")
             }
             
             if all(system_email_creds.values()):
@@ -891,4 +891,5 @@ if __name__ == "__main__":
         attachments=None  # Remove the file that doesn't exist
     )
     
+
     print(json.dumps(result, indent=2))
