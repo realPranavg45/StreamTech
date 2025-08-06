@@ -8,7 +8,7 @@ import pandas as pd
 from typing import Dict, Any, List
 import sys
 import os
-from pydantic import BaseModel, EmailStr, ValidationError
+
 
 # Add the current directory to Python path to import the backend
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -1311,3 +1311,4 @@ st.markdown("---")
 st.markdown("**📅 Pure Python CRM - Meeting & Task Management System**")
 
 st.markdown("*Powered by Pure Python Backend + Streamlit Frontend*")
+
