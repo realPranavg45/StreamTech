@@ -17,14 +17,13 @@ from supabase import create_client, Client
 import json
 from datetime import datetime, timedelta
 import traceback
-from dotenv import load_dotenv
+import streamlit as st
 import hashlib
 import secrets
 import re
 import bcrypt
 
-# Load environment variables from .env file
-load_dotenv()
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -893,3 +892,4 @@ if __name__ == "__main__":
     
 
     print(json.dumps(result, indent=2))
+
