@@ -9,13 +9,13 @@ import json
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from dotenv import load_dotenv
+import streamlit as st
 from sqlalchemy import desc
 import supabase
 import traceback
 import calendar
 
-load_dotenv()
+
 
 # ------------------- Models -------------------
 class MeetingData(BaseModel):
@@ -1218,4 +1218,5 @@ class BackendService:
 
 # Global backend service instance
 backend_service = BackendService()
+
 
