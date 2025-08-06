@@ -123,8 +123,6 @@ def home_page():
             submit = st.form_submit_button("Send Email")
 
             if submit:
-                
-...
                 login_creds = {
                     "email": st.secrets["SYSTEM_EMAIL"],
                     "password": st.secrets["SYSTEM_EMAIL_PASSWORD"],
@@ -186,6 +184,7 @@ elif st.session_state.page == "Verify OTP":
     otp_page()
 elif st.session_state.page == "Home":
     home_page()
+
 
 
 
