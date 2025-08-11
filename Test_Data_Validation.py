@@ -6,12 +6,14 @@ st.set_page_config(page_title="🧪 Data Validation Tester", layout="wide")
 st.title("📊 Data Validation Streamlit UI")
 
 # Upload any file
-uploaded_file = st.file_uploader("📁 Upload your dataset", type=["csv", "xlsx", "xls", "json", "parquet", "feather"])
+uploaded_file = st.file_uploader(
+    "📁 Upload your dataset", 
+    type=["csv", "xlsx", "xls", "json", "parquet", "feather"]
+)
 
 if uploaded_file:
-    # Determine file type and read accordingly
     file_name = uploaded_file.name.lower()
-    
+
     try:
         if file_name.endswith('.csv'):
             df = pd.read_csv(uploaded_file)
@@ -24,11 +26,15 @@ if uploaded_file:
         elif file_name.endswith('.feather'):
             df = pd.read_feather(uploaded_file)
         else:
-            st.error("Unsupported file format. Please upload a CSV, Excel, JSON, Parquet, or Feather file.")
+            st.error("Unsupported file format.")
             st.stop()
     except Exception as e:
         st.error(f"Error reading file: {str(e)}")
         st.stop()
+
+    # 🔹 Cast object columns to string for Arrow compatibility
+    for col in df.select_dtypes(include=["object"]).columns:
+        df[col] = df[col].astype(str)
 
     st.subheader("🔍 Preview Uploaded Data")
     st.dataframe(df)
@@ -40,8 +46,8 @@ if uploaded_file:
     # Unique columns
     unique_columns = st.multiselect("✅ Columns that must be unique", options=columns)
 
-    # Composite unique columns (manual input as list of lists)
-    st.text("🧩 Composite unique sets (list of lists e.g. [['id', 'email']])")
+    # Composite unique columns
+    st.text("🧩 Composite unique sets (e.g. [['id', 'email']])")
     composite_unique_input = st.text_area("Composite Unique", value="[[]]", height=100)
     try:
         composite_unique = eval(composite_unique_input)
@@ -54,9 +60,8 @@ if uploaded_file:
     non_null_columns = st.multiselect("🚫 Non-null columns", options=columns)
 
     # Numeric column rules
-    st.markdown("🔢 Numeric Column Rules (Multiple Allowed)")
+    st.markdown("🔢 Numeric Column Rules")
     selected_numeric_columns = st.multiselect("Select numeric columns", options=columns)
-
     numeric_config = {}
     for col in selected_numeric_columns:
         st.markdown(f"**Column: `{col}`**")
@@ -103,7 +108,6 @@ if uploaded_file:
         result = validator.validate(df)
         summary = result.get_summary()
 
-        # Summary
         if summary["is_valid"]:
             st.success("✅ Data is valid.")
         else:
@@ -112,7 +116,6 @@ if uploaded_file:
         st.subheader("📋 Validation Summary")
         st.json(summary)
 
-        # Errors
         if summary["errors"]:
             st.subheader("❗ Validation Errors")
             for err in summary["errors"]:
@@ -120,13 +123,11 @@ if uploaded_file:
                 if err['invalid_rows']:
                     st.code(f"Rows: {err['invalid_rows'][:10]}{'...' if len(err['invalid_rows']) > 10 else ''}")
 
-        # Warnings
         if summary["warnings"]:
             st.subheader("⚠️ Warnings")
             for warn in summary["warnings"]:
                 st.write(f"**{warn['warning_type']}** in `{warn['column']}` — {warn['details']}")
 
-    # Optional: Profile
     if st.checkbox("📑 Show Quick Data Profile"):
         profile = quick_data_profile(df)
         st.subheader("📊 Data Profile")
