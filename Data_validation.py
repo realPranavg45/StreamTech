@@ -171,8 +171,8 @@ class DataValidator:
                 )
             
             # Skip if fewer than 2 valid columns remain
-            if len(valid_cols) < len(combo):
-                continue
+            if len(valid_cols) >= 2:
+                duplicates = df[df.duplicated(subset=valid_cols, keep=False)]
 
             # Check duplicates
             duplicates = df[df.duplicated(subset=valid_cols, keep=False)]
@@ -385,7 +385,10 @@ def validate_single_column(df: pd.DataFrame, column: str, validation_type: str,
     DatasetValidationResult
         Validation results for the single column
     """
-    config = {validation_type + '_columns': {column: constraints} if constraints else [column]}
+    if validation_type in ['unique', 'non_null']:
+     config = {f"{validation_type}_columns": [column]}
+    else:
+        config = {f"{validation_type}_columns": {column: constraints}}
     validator = DataValidator(config)
     return validator.validate(df)
 
