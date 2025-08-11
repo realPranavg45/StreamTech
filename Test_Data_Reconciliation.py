@@ -68,11 +68,12 @@ else:
     left_name = left_file.name if left_file else "Left Dataset"
     right_name = right_file.name if right_file else "Right Dataset"
 
-# Configuration parameters
-st.sidebar.header("Reconciliation Parameters")
-partial_threshold = st.sidebar.slider("Partial Match Threshold", 0.1, 1.0, 0.8, 0.1)
-combine_duplicates = st.sidebar.checkbox("Combine Duplicate Keys", value=True)
-show_detailed_results = st.sidebar.checkbox("Show Detailed Results", value=True)
+
+# Configuration parameters (hidden defaults)
+partial_threshold = 1.0  # default value
+combine_duplicates = True  # default checked
+show_detailed_results = True  # default checked
+
 
 # Main content area
 col1, col2 = st.columns(2)
@@ -593,4 +594,5 @@ st.markdown("""
 - ✅ Match summary with totals and differences
 - ✅ Preserved manual matches in complete reconciliation
 - ✅ Session state management for workflow continuity
+
 """)
