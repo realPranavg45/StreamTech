@@ -149,18 +149,42 @@ class DataValidator:
         """Validate composite unique constraints."""
         if 'composite_unique' not in self.validation_config:
             return
-            
+        
         for combo in self.validation_config['composite_unique']:
-            if all(col in df.columns for col in combo):
-                duplicates = df[df.duplicated(subset=combo, keep=False)]
-                if not duplicates.empty:
-                    duplicate_rows = duplicates.index.tolist()
-                    self.result.add_error(
-                        'composite_unique_constraint', '+'.join(combo),
-                        f"Found {len(duplicate_rows)} rows with duplicate combinations",
-                        duplicate_rows
-                    )
-    
+            # Ensure combo is a list/tuple
+            if not isinstance(combo, (list, tuple)):
+                self.result.add_warning(
+                    'config_warning', str(combo),
+                    f"Invalid composite unique definition: {combo} (must be list of column names)"
+                )
+                continue
+
+            # Keep only columns that exist in df
+            valid_cols = [col for col in combo if col in df.columns]
+            missing_cols = [col for col in combo if col not in df.columns]
+
+            # Warn if any columns are missing
+            if missing_cols:
+                self.result.add_warning(
+                    'missing_column', '+'.join(combo),
+                    f"Missing columns in DataFrame: {missing_cols}"
+                )
+            
+            # Skip if fewer than 2 valid columns remain
+            if len(valid_cols) < len(combo):
+                continue
+
+            # Check duplicates
+            duplicates = df[df.duplicated(subset=valid_cols, keep=False)]
+            if not duplicates.empty:
+                duplicate_rows = duplicates.index.tolist()
+                self.result.add_error(
+                    'composite_unique_constraint', '+'.join(valid_cols),
+                    f"Found {len(duplicate_rows)} rows with duplicate combinations",
+                    duplicate_rows
+                )
+
+        
     def _validate_non_null_columns(self, df: pd.DataFrame):
         """Validate non-null column constraints."""
         if 'non_null_columns' not in self.validation_config:
