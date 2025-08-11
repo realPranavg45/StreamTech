@@ -169,10 +169,10 @@ class DataValidator:
                     'missing_column', '+'.join(combo),
                     f"Missing columns in DataFrame: {missing_cols}"
                 )
-            
+
             # Skip if fewer than 2 valid columns remain
-            if len(valid_cols) >= 2:
-                duplicates = df[df.duplicated(subset=valid_cols, keep=False)]
+            if len(valid_cols) < 2:
+                continue  # <-- FIX: don't call duplicated() with empty or single col
 
             # Check duplicates
             duplicates = df[df.duplicated(subset=valid_cols, keep=False)]
