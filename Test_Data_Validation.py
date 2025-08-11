@@ -5,11 +5,31 @@ from Data_validation import DataValidator, quick_data_profile
 st.set_page_config(page_title="🧪 Data Validation Tester", layout="wide")
 st.title("📊 Data Validation Streamlit UI")
 
-# Upload CSV
-uploaded_file = st.file_uploader("📁 Upload your dataset (CSV)", type=["csv"])
+# Upload any file
+uploaded_file = st.file_uploader("📁 Upload your dataset", type=["csv", "xlsx", "xls", "json", "parquet", "feather"])
 
 if uploaded_file:
-    df = pd.read_csv(uploaded_file)
+    # Determine file type and read accordingly
+    file_name = uploaded_file.name.lower()
+    
+    try:
+        if file_name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        elif file_name.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(uploaded_file)
+        elif file_name.endswith('.json'):
+            df = pd.read_json(uploaded_file)
+        elif file_name.endswith('.parquet'):
+            df = pd.read_parquet(uploaded_file)
+        elif file_name.endswith('.feather'):
+            df = pd.read_feather(uploaded_file)
+        else:
+            st.error("Unsupported file format. Please upload a CSV, Excel, JSON, Parquet, or Feather file.")
+            st.stop()
+    except Exception as e:
+        st.error(f"Error reading file: {str(e)}")
+        st.stop()
+
     st.subheader("🔍 Preview Uploaded Data")
     st.dataframe(df)
 
@@ -44,7 +64,6 @@ if uploaded_file:
         col_max = st.number_input(f"Maximum value for `{col}`", key=f"max_{col}", value=1000000.0)
         numeric_config[col] = {"min": col_min, "max": col_max}
 
-
     # Date column rules
     st.markdown("📅 Date Column Rule")
     date_col = st.selectbox("Choose a date column (optional)", options=[""] + columns)
@@ -70,12 +89,12 @@ if uploaded_file:
 
     # Combine validation config
     validation_config = {
-         "unique_columns": unique_columns,
-    "composite_unique": composite_unique,
-    "non_null_columns": non_null_columns,
-    "numeric_columns": numeric_config,
-    "date_columns": date_config,
-    "categorical_columns": categorical_config
+        "unique_columns": unique_columns,
+        "composite_unique": composite_unique,
+        "non_null_columns": non_null_columns,
+        "numeric_columns": numeric_config,
+        "date_columns": date_config,
+        "categorical_columns": categorical_config
     }
 
     st.markdown("---")
