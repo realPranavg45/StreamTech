@@ -1,6 +1,29 @@
+# Core app
 streamlit
-pydantic>=2.0
 supabase
-bcrypt
 SQLAlchemy>=2.0
+
+# Data validation
+pydantic>=2.0
 pydantic[email]>=2.0
+
+# Security / Password hashing
+bcrypt
+
+# Excel / CSV handling
+openpyxl
+pandas
+xlrd
+
+# HTTP requests
+requests
+
+# Environment variables
+python-dotenv
+
+# Date and time utilities
+python-dateutil
+
+# Optional extras (avoid missing dependency errors)
+psycopg2-binary    # PostgreSQL driver
+cryptography       # Encryption / security utilities
