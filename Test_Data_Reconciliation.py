@@ -68,12 +68,11 @@ else:
     left_name = left_file.name if left_file else "Left Dataset"
     right_name = right_file.name if right_file else "Right Dataset"
 
-
-# Configuration parameters (hidden defaults)
-partial_threshold = 1.0  # default value
-combine_duplicates = True  # default checked
-show_detailed_results = True  # default checked
-
+# Configuration parameters
+st.sidebar.header("Reconciliation Parameters")
+partial_threshold = st.sidebar.slider("Partial Match Threshold", 0.1, 1.0, 0.8, 0.1)
+combine_duplicates = st.sidebar.checkbox("Combine Duplicate Keys", value=True)
+show_detailed_results = st.sidebar.checkbox("Show Detailed Results", value=True)
 
 # Main content area
 col1, col2 = st.columns(2)
@@ -222,168 +221,186 @@ else:
         st.session_state.engine_initialized = False
     
     # Manual Reconciliation Section
-    st.header("🔧 Manual Reconciliation")
-    
+st.header("🔧 Manual Reconciliation")
+
+# Add toggle for manual reconciliation
+enable_manual_reconciliation = st.checkbox("Enable Manual Reconciliation", value=False)
+
+if enable_manual_reconciliation:
     # Create two columns for the manual reconciliation interface
     manual_col1, manual_col2 = st.columns(2)
-    
+
     with manual_col1:
         st.subheader(f"Select {left_name} Rows")
-        # Show the dataframe with row indices visible
-        st.dataframe(left_df, use_container_width=True)
+        # Display dataframe with checkboxes for row selection
+        left_df_display = left_df.copy()
+        left_df_display['Select'] = False
+        left_df_display = left_df_display[['Select'] + [col for col in left_df_display.columns if col != 'Select']]
         
-        # Multi-select for row indices
-        max_left_idx = len(left_df) - 1
-        selected_left = st.multiselect(
-            f"Select row indices from {left_name} (0-{max_left_idx})",
-            options=list(range(len(left_df))),
-            format_func=lambda x: f"Row {x}: {left_df.loc[x, left_key_cols[0]] if len(left_key_cols) > 0 else f'Index {x}'}"
+        # Use st.data_editor to make rows selectable
+        edited_left = st.data_editor(
+            left_df_display,
+            key="left_df_editor",
+            disabled=[col for col in left_df_display.columns if col != 'Select'],
+            hide_index=False,
+            use_container_width=True
         )
-        
-        # Display selected rows
-        if selected_left:
-            st.write("Selected rows:")
-            st.dataframe(left_df.loc[selected_left], use_container_width=True)
-    
+        selected_left = edited_left[edited_left['Select']].index.tolist()
+
     with manual_col2:
         st.subheader(f"Select {right_name} Rows")
-        # Show the dataframe with row indices visible
-        st.dataframe(right_df, use_container_width=True)
+        # Display dataframe with checkboxes for row selection
+        right_df_display = right_df.copy()
+        right_df_display['Select'] = False
+        right_df_display = right_df_display[['Select'] + [col for col in right_df_display.columns if col != 'Select']]
         
-        # Multi-select for row indices
-        max_right_idx = len(right_df) - 1
-        selected_right = st.multiselect(
-            f"Select row indices from {right_name} (0-{max_right_idx})",
-            options=list(range(len(right_df))),
-            format_func=lambda x: f"Row {x}: {right_df.loc[x, right_key_cols[0]] if len(right_key_cols) > 0 else f'Index {x}'}"
+        # Use st.data_editor to make rows selectable
+        edited_right = st.data_editor(
+            right_df_display,
+            key="right_df_editor",
+            disabled=[col for col in right_df_display.columns if col != 'Select'],
+            hide_index=False,
+            use_container_width=True
         )
-        
-        # Display selected rows
-        if selected_right:
-            st.write("Selected rows:")
-            st.dataframe(right_df.loc[selected_right], use_container_width=True)
-    
+        selected_right = edited_right[edited_right['Select']].index.tolist()
+
     # --- Manual reconciliation with totals check ---
-            if not selected_left or not selected_right:
-                st.warning("Please select at least one row from each dataset")
+    if not selected_left or not selected_right:
+        st.warning("Please select at least one row from each dataset by checking the boxes")
+    else:
+        try:
+            # Initialize reconciliation engine
+            engine = DataReconciliationEngine()
+
+            # Prepare engine state
+            _ = engine.reconcile_datasets(
+                left_df=left_df.copy(),
+                right_df=right_df.copy(),
+                left_key_columns=left_key_cols,
+                right_key_columns=right_key_cols,
+                left_value_columns=left_value_cols,
+                right_value_columns=right_value_cols,
+                combine_duplicates=combine_duplicates,
+                partial_match_threshold=partial_threshold,
+                left_name=left_name,
+                right_name=right_name
+            )
+
+            # --- Check totals before enabling reconcile ---
+            validation = engine.validate_manual_matches([(l, r) for l in selected_left for r in selected_right])
+            totals_match = validation['totals_match']
+
+            if not totals_match:
+                st.warning("⚠ Totals from Left and Right do not match. Adjust your selection.")
+                st.json(validation['total_differences'])
             else:
-                try:
-                    # Initialize reconciliation engine
-                    engine = DataReconciliationEngine()
+                # Only show reconcile button if totals match
+                if st.button("🔗 Perform Manual Reconciliation", key="manual_reconcile_totals_match"):
+                    with st.spinner("Performing manual reconciliation..."):
+                        manual_results = engine.manual_reconcile(
+                            left_indexes=selected_left,
+                            right_indexes=selected_right,
+                            match_type='manual'
+                        )
 
-                    # Prepare engine state
-                    _ = engine.reconcile_datasets(
-                        left_df=left_df.copy(),
-                        right_df=right_df.copy(),
-                        left_key_columns=left_key_cols,
-                        right_key_columns=right_key_cols,
-                        left_value_columns=left_value_cols,
-                        right_value_columns=right_value_cols,
-                        combine_duplicates=combine_duplicates,
-                        partial_match_threshold=partial_threshold,
-                        left_name=left_name,
-                        right_name=right_name
-                    )
+                        # Remove matched rows from unmatched list in UI
+                        updated_unmatched = manual_results['unmatched_entries'].copy()
+                        updated_unmatched = updated_unmatched[
+                            ~updated_unmatched['Matched'].astype(str).str.strip().astype(bool)
+                        ]
+                        st.session_state.unmatched_entries = updated_unmatched
 
-                    # --- Check totals before enabling reconcile ---
-                    validation = engine.validate_manual_matches([(l, r) for l in selected_left for r in selected_right])
-                    totals_match = validation['totals_match']
+                        # Save results for later use
+                        st.session_state.reconciliation_results = manual_results
+                        st.session_state.engine_initialized = True
 
-                    if not totals_match:
-                        st.warning("⚠ Totals from Left and Right do not match. Adjust your selection.")
-                        st.json(validation['total_differences'])
-                    else:
-                        # Only show reconcile button if totals match
-                        if st.button("🔗 Perform Manual Reconciliation", key="manual_reconcile_totals_match"):
-                            with st.spinner("Performing manual reconciliation..."):
-                                manual_results = engine.manual_reconcile(
-                                    left_indexes=selected_left,
-                                    right_indexes=selected_right,
-                                    match_type='manual'
-                                )
+                        st.success("Manual reconciliation completed successfully!")
 
-                                # Remove matched rows from unmatched list in UI
-                                updated_unmatched = manual_results['unmatched_entries'].copy()
-                                updated_unmatched = updated_unmatched[
-                                    ~updated_unmatched['Matched'].astype(str).str.strip().astype(bool)
-                                ]
-                                st.session_state.unmatched_entries = updated_unmatched
+                        # Show updated rows with match information
+                        st.subheader("✅ Manual Reconciliation Results")
+                        
+                        updated_col1, updated_col2 = st.columns(2)
+                        
+                        with updated_col1:
+                            st.write(f"**{left_name} - Updated Rows:**")
+                            left_display_cols = left_key_cols + left_value_cols + ['Matched', 'Match_Type', 'Match_Score']
+                            left_updated_rows = manual_results['left_df_updated'].loc[selected_left, left_display_cols]
+                            st.dataframe(left_updated_rows, use_container_width=True)
+                        
+                        with updated_col2:
+                            st.write(f"**{right_name} - Updated Rows:**")
+                            right_display_cols = right_key_cols + right_value_cols + ['Matched', 'Match_Type', 'Match_Score']
+                            right_updated_rows = manual_results['right_df_updated'].loc[selected_right, right_display_cols]
+                            st.dataframe(right_updated_rows, use_container_width=True)
+                        
+                        # Show match summary
+                        st.subheader("📊 Manual Match Summary")
+                        match_info_col1, match_info_col2 = st.columns(2)
+                        
+                        with match_info_col1:
+                            st.metric("Left Rows Matched", len(selected_left))
+                            left_totals = {}
+                            for col in left_value_cols:
+                                if pd.api.types.is_numeric_dtype(left_df[col]):
+                                    total = left_df.loc[selected_left, col].sum()
+                                    left_totals[col] = total
+                                    st.metric(f"Left Total - {col}", f"{total:,.2f}")
+                        
+                        with match_info_col2:
+                            st.metric("Right Rows Matched", len(selected_right))
+                            right_totals = {}
+                            for i, col in enumerate(right_value_cols):
+                                if pd.api.types.is_numeric_dtype(right_df[col]):
+                                    total = right_df.loc[selected_right, col].sum()
+                                    right_totals[col] = total
+                                    st.metric(f"Right Total - {col}", f"{total:,.2f}")
+                                    
+                                    # Show difference if corresponding left column exists
+                                    if i < len(left_value_cols):
+                                        left_col = left_value_cols[i]
+                                        if left_col in left_totals:
+                                            diff = left_totals[left_col] - total
+                                            st.metric(f"Difference ({left_col} - {col})", f"{diff:,.2f}")
 
-                                # Save results for later use
-                                st.session_state.reconciliation_results = manual_results
-                                st.session_state.engine_initialized = True
+                        # Store the updated dataframes in session state
+                        st.session_state.left_df_updated = manual_results['left_df_updated']
+                        st.session_state.right_df_updated = manual_results['right_df_updated']
 
-                                st.success("Manual reconciliation completed successfully!")
+        except Exception as e:
+            st.error(f"Error during manual reconciliation: {str(e)}")
+            st.write("Debug information:")
+            st.write(f"Selected left indexes: {selected_left}")
+            st.write(f"Selected right indexes: {selected_right}")
+            st.write(f"Left DF shape: {left_df.shape}")
+            st.write(f"Right DF shape: {right_df.shape}")
+            st.exception(e)
+else:
+    st.info("Manual reconciliation is currently disabled. Enable the toggle above to perform manual matching.")
 
-                                # Show updated rows with match information
-                                st.subheader("✅ Manual Reconciliation Results")
-                                # You can expand this to show updated results here
-
-                except Exception as e:
-                    st.error(f"Error during manual reconciliation: {str(e)}")
-                    st.exception(e)
-
-                    
-                    updated_col1, updated_col2 = st.columns(2)
-                    
-                    with updated_col1:
-                        st.write(f"**{left_name} - Updated Rows:**")
-                        left_display_cols = left_key_cols + left_value_cols + ['Matched', 'Match_Type', 'Match_Score']
-                        left_updated_rows = manual_results['left_df_updated'].loc[selected_left, left_display_cols]
-                        st.dataframe(left_updated_rows, use_container_width=True)
-                    
-                    with updated_col2:
-                        st.write(f"**{right_name} - Updated Rows:**")
-                        right_display_cols = right_key_cols + right_value_cols + ['Matched', 'Match_Type', 'Match_Score']
-                        right_updated_rows = manual_results['right_df_updated'].loc[selected_right, right_display_cols]
-                        st.dataframe(right_updated_rows, use_container_width=True)
-                    
-                    # Show match summary
-                    st.subheader("📊 Manual Match Summary")
-                    match_info_col1, match_info_col2 = st.columns(2)
-                    
-                    with match_info_col1:
-                        st.metric("Left Rows Matched", len(selected_left))
-                        left_totals = {}
-                        for col in left_value_cols:
-                            if pd.api.types.is_numeric_dtype(left_df[col]):
-                                total = left_df.loc[selected_left, col].sum()
-                                left_totals[col] = total
-                                st.metric(f"Left Total - {col}", f"{total:,.2f}")
-                    
-                    with match_info_col2:
-                        st.metric("Right Rows Matched", len(selected_right))
-                        right_totals = {}
-                        for i, col in enumerate(right_value_cols):
-                            if pd.api.types.is_numeric_dtype(right_df[col]):
-                                total = right_df.loc[selected_right, col].sum()
-                                right_totals[col] = total
-                                st.metric(f"Right Total - {col}", f"{total:,.2f}")
-                                
-                                # Show difference if corresponding left column exists
-                                if i < len(left_value_cols):
-                                    left_col = left_value_cols[i]
-                                    if left_col in left_totals:
-                                        diff = left_totals[left_col] - total
-                                        st.metric(f"Difference ({left_col} - {col})", f"{diff:,.2f}")
-                    
-                except Exception as e:
-                    st.error(f"Error during manual reconciliation: {str(e)}")
-                    st.write("Debug information:")
-                    st.write(f"Selected left indexes: {selected_left}")
-                    st.write(f"Selected right indexes: {selected_right}")
-                    st.write(f"Left DF shape: {left_df.shape}")
-                    st.write(f"Right DF shape: {right_df.shape}")
-                    st.exception(e)
+  # Display current reconciliation status if manual matches exist
+if 'left_df_updated' in st.session_state and 'right_df_updated' in st.session_state:
+    st.header("Current Reconciliation Status")
+    col1, col2 = st.columns(2)
     
+    with col1:
+        st.subheader(f"{left_name} with Matches")
+        display_cols = left_key_cols + left_value_cols + ['Matched', 'Match_Type', 'Match_Score']
+        st.dataframe(st.session_state.left_df_updated[display_cols], use_container_width=True)
+    
+    with col2:
+        st.subheader(f"{right_name} with Matches")
+        display_cols = right_key_cols + right_value_cols + ['Matched', 'Match_Type', 'Match_Score']
+        st.dataframe(st.session_state.right_df_updated[display_cols], use_container_width=True)
+          
     # Run Full Reconciliation Button (incorporating any manual matches)
-    if st.button("🚀 Run Complete Reconciliation", type="primary", use_container_width=True):
+if st.button("🚀 Run Complete Reconciliation", type="primary", use_container_width=True):
         with st.spinner("Running complete reconciliation..."):
             try:
                 # Use existing results if manual reconciliation was performed
                 if st.session_state.reconciliation_results is not None:
                     st.info("Using existing manual matches and running complete reconciliation...")
                     results = st.session_state.reconciliation_results
+                    
                 else:
                     # Run fresh reconciliation
                     engine = DataReconciliationEngine()
@@ -422,10 +439,13 @@ else:
                 
                 # Display final summary DataFrame
                 st.header("📋 Final Summary DataFrame")
-                st.markdown("*This shows the comprehensive reconciliation results by key*")
+                st.markdown("*Reconciliation breakdown showing differences and totals*")
                 final_summary = results['final_summary_df']
-                st.dataframe(final_summary, use_container_width=True)
-                
+                #st.dataframe(final_summary, hide_index=True, use_container_width=True)
+
+                # Style the dataframe to match your format
+                styled_summary = final_summary.style.apply(lambda x: ['background-color: yellow' if 'This is 0' in str(val) else '' for val in x], axis=0)
+                st.dataframe(styled_summary, hide_index=True,use_container_width=True)
                 # Download final summary
                 st.header("💾 Download Results")
                 csv_summary = final_summary.to_csv(index=False)
@@ -594,5 +614,4 @@ st.markdown("""
 - ✅ Match summary with totals and differences
 - ✅ Preserved manual matches in complete reconciliation
 - ✅ Session state management for workflow continuity
-
 """)
