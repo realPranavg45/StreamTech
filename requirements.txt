@@ -27,4 +27,4 @@ python-dateutil
 # Optional extras (avoid missing dependency errors)
 psycopg2-binary    # PostgreSQL driver
 cryptography       # Encryption / security utilities
-psycopg2
+
