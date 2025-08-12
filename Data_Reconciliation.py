@@ -488,100 +488,127 @@ class DataReconciliationEngine:
     
     def _create_final_summary_dataframe(self) -> pd.DataFrame:
         """
-        Create a final summary DataFrame that consolidates all reconciliation results.
+        Create a final summary DataFrame in the specific format showing reconciliation breakdown.
         """
+        
+        # Get categorized entries
+        matching_entries = self._get_matching_entries()
+        left_only_entries = self._get_left_only_entries()
+        right_only_entries = self._get_right_only_entries()
+        mismatched_entries = self._get_mismatched_entries()
         
         summary_data = []
         
-        # Get all unique composite keys from both datasets
-        left_composite_keys = self._create_composite_key(self.left_df, self.left_keys)
-        right_composite_keys = self._create_composite_key(self.right_df, self.right_keys)
-        
-        all_keys = set(left_composite_keys.unique()).union(set(right_composite_keys.unique()))
-        
-        for key in all_keys:
-            # Get rows with this key from both datasets
-            left_mask = left_composite_keys == key
-            right_mask = right_composite_keys == key
-            
-            left_rows = self.left_df[left_mask]
-            right_rows = self.right_df[right_mask]
-            
-            # Determine reconciliation status
-            status = self._determine_reconciliation_status(left_rows, right_rows)
-            
-            # Calculate aggregated values
-            left_totals = {}
-            right_totals = {}
-            
-            for i, (left_col, right_col) in enumerate(zip(self.left_values, self.right_values)):
-                if len(left_rows) > 0:
-                    if pd.api.types.is_numeric_dtype(left_rows[left_col]):
-                        left_totals[left_col] = left_rows[left_col].sum()
-                    else:
-                        left_totals[left_col] = left_rows[left_col].iloc[0] if not left_rows[left_col].isna().all() else None
-                else:
-                    left_totals[left_col] = 0 if any(pd.api.types.is_numeric_dtype(self.left_df[col]) for col in self.left_values) else None
+        # Calculate totals for value columns
+        for i, (left_col, right_col) in enumerate(zip(self.left_values, self.right_values)):
+            if pd.api.types.is_numeric_dtype(self.left_df[left_col]) and pd.api.types.is_numeric_dtype(self.right_df[right_col]):
                 
-                if len(right_rows) > 0:
-                    if pd.api.types.is_numeric_dtype(right_rows[right_col]):
-                        right_totals[right_col] = right_rows[right_col].sum()
-                    else:
-                        right_totals[right_col] = right_rows[right_col].iloc[0] if not right_rows[right_col].isna().all() else None
-                else:
-                    right_totals[right_col] = 0 if any(pd.api.types.is_numeric_dtype(self.right_df[col]) for col in self.right_values) else None
-            
-            # Create summary row with dataset-specific names
-            summary_row = {
-                'Key': key,
-                'Status': status,
-                f'{self.left_name}_Row_Count': len(left_rows),
-                f'{self.right_name}_Row_Count': len(right_rows),
-                f'{self.left_name}_Indexes': ','.join(map(str, left_rows.index.tolist())) if len(left_rows) > 0 else '',
-                f'{self.right_name}_Indexes': ','.join(map(str, right_rows.index.tolist())) if len(right_rows) > 0 else '',
-            }
-            
-            # Add key columns
-            if len(left_rows) > 0:
-                for key_col in self.left_keys:
-                    summary_row[f'Key_{key_col}'] = left_rows[key_col].iloc[0]
-            elif len(right_rows) > 0:
-                for i, key_col in enumerate(self.right_keys):
-                    summary_row[f'Key_{self.left_keys[i]}'] = right_rows[key_col].iloc[0]
-            
-            # Add value columns with dataset-specific names
-            for i, (left_col, right_col) in enumerate(zip(self.left_values, self.right_values)):
-                summary_row[f'{self.left_name}_{left_col}'] = left_totals[left_col]
-                summary_row[f'{self.right_name}_{right_col}'] = right_totals[right_col]
+                # Total from each dataset
+                left_total = self.left_df[left_col].sum()
+                right_total = self.right_df[right_col].sum()
                 
-                # Calculate difference for numeric columns
-                if (pd.api.types.is_numeric_dtype(self.left_df[left_col]) and 
-                    pd.api.types.is_numeric_dtype(self.right_df[right_col])):
-                    left_val = left_totals[left_col] if left_totals[left_col] is not None else 0
-                    right_val = right_totals[right_col] if right_totals[right_col] is not None else 0
-                    summary_row[f'Diff_{left_col}_{right_col}'] = left_val - right_val
-            
-            # Add match information
-            if len(left_rows) > 0:
-                match_types = left_rows['Match_Type'].dropna().unique()
-                match_scores = left_rows['Match_Score'].dropna()
-                summary_row['Match_Type'] = ','.join(match_types) if len(match_types) > 0 else 'No Match'
-                summary_row['Avg_Match_Score'] = match_scores.mean() if len(match_scores) > 0 else 0.0
-            else:
-                summary_row['Match_Type'] = f'{self.right_name} Only'
-                summary_row['Avg_Match_Score'] = 0.0
-            
-            summary_data.append(summary_row)
+                # Left only totals
+                left_only_total = 0
+                if not left_only_entries.empty and left_col in left_only_entries.columns:
+                    left_only_total = left_only_entries[left_col].sum()
+                
+                # Right only totals  
+                right_only_total = 0
+                if not right_only_entries.empty and right_col in right_only_entries.columns:
+                    right_only_total = right_only_entries[right_col].sum()
+                
+                # Mismatched totals
+                mismatched_left_total = 0
+                mismatched_right_total = 0
+                if not mismatched_entries.empty:
+                    left_mismatched = mismatched_entries[mismatched_entries['Source'] == 'Left_Mismatched']
+                    right_mismatched = mismatched_entries[mismatched_entries['Source'] == 'Right_Mismatched']
+                    if not left_mismatched.empty and left_col in left_mismatched.columns:
+                        mismatched_left_total = left_mismatched[left_col].sum()
+                    if not right_mismatched.empty and right_col in right_mismatched.columns:
+                        mismatched_right_total = right_mismatched[right_col].sum()
+                
+                # Calculate mismatch difference
+                mismatch_difference = mismatched_left_total - mismatched_right_total
+                
+                # Calculate intermediate difference (left only - right only + mismatch)
+                intermediate_difference = left_only_total - right_only_total + mismatch_difference
+                
+                # Calculate final reconciliation difference
+                final_difference = left_total - right_total
+                
+                # Create summary rows for this column pair
+                col_summary = [
+    {
+        'Particulars': f'Total as per {self.left_name}',
+        'Rs': f'{left_total}',
+        'Total Rs': ''
+    },
+    {
+        'Particulars': f'Total as per {self.right_name}',
+        'Rs': f'{right_total}',
+        'Total Rs': ''
+    },
+    {
+        'Particulars': 'Difference',
+        'Rs': '',
+        'Total Rs': f'{abs(final_difference)}' if final_difference != 0 else ''
+    },
+    {
+        'Particulars': 'Reconciliation',
+        'Rs': '',
+        'Total Rs': ''
+    },
+    {
+        'Particulars': f'Entries only in {self.left_name}',
+        'Rs': f'{left_only_total}' if left_only_total != 0 else '',
+        'Total Rs': ''
+    },
+    {
+        'Particulars': f'Entries only in  {self.right_name}',
+        'Rs': f'{self.right_name} {right_only_total}' if right_only_total != 0 else '',
+        'Total Rs': ''
+    },
+    {
+        'Particulars': 'Mismatch in entries',
+        'Rs': f'{abs(mismatch_difference)}' if mismatch_difference != 0 else '',
+        'Total Rs': ''
+    },
+    {
+        'Particulars': 'Difference',
+        'Rs': '',
+        'Total Rs': f'{abs(intermediate_difference)}' if intermediate_difference != 0 else ''
+    },
+    {
+        'Particulars': 'Difference in Reconciliation',
+        'Rs': '',
+        'Total Rs': '0' if abs(final_difference - intermediate_difference) < 0.01 else f'{abs(final_difference - intermediate_difference)}'
+    }
+]
+                
+                summary_data.extend(col_summary)
+                
+                # Add separator between different column pairs
+                if i < len(self.left_values) - 1:
+                    summary_data.append({
+                        'Particulars': '---',
+                        'Left Data': '---',
+                        'Right Data': '---', 
+                        'Rs': '---',
+                        'Total Rs': '---'
+                    })
         
-        # Create DataFrame and sort by status and key
+        # Create DataFrame
         final_summary_df = pd.DataFrame(summary_data)
         
-        if not final_summary_df.empty:
-            # Sort by status priority and then by key
-            status_order = {'Matched': 1, 'Partial': 2, 'Mismatched': 3, 
-                        f'{self.left_name} Only': 4, f'{self.right_name} Only': 5}
-            final_summary_df['Status_Order'] = final_summary_df['Status'].map(status_order)
-            final_summary_df = final_summary_df.sort_values(['Status_Order', 'Key']).drop('Status_Order', axis=1)
+        # Convert all columns to string type to avoid Arrow serialization issues
+        for col in final_summary_df.columns:
+            final_summary_df[col] = final_summary_df[col].astype(str)
+        
+        # Replace 'nan' strings with empty strings
+        final_summary_df = final_summary_df.replace('nan', '')
+        final_summary_df = final_summary_df.replace('0.0', '')
+        final_summary_df = final_summary_df.replace('0', '', regex=False)
         
         return final_summary_df
 
