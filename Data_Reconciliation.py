@@ -552,7 +552,7 @@ class DataReconciliationEngine:
     {
         'Particulars': 'Difference',
         'Rs': '',
-        'Total Rs': f'{abs(final_difference)}' if final_difference != 0 else ''
+        'Total Rs': f'{abs(final_difference)}'  # Always show, even if 0
     },
     {
         'Particulars': 'Reconciliation',
@@ -561,28 +561,28 @@ class DataReconciliationEngine:
     },
     {
         'Particulars': f'Entries only in {self.left_name}',
-        'Rs': f'{left_only_total}' if left_only_total != 0 else '',
+        'Rs': f'{left_only_total}',  # Always show, even if 0
         'Total Rs': ''
     },
     {
-        'Particulars': f'Entries only in  {self.right_name}',
-        'Rs': f'{self.right_name} {right_only_total}' if right_only_total != 0 else '',
+        'Particulars': f'Entries only in {self.right_name}',
+        'Rs': f'{right_only_total}',  # Always show, even if 0
         'Total Rs': ''
     },
     {
         'Particulars': 'Mismatch in entries',
-        'Rs': f'{abs(mismatch_difference)}' if mismatch_difference != 0 else '',
+        'Rs': f'{abs(mismatch_difference)}',  # Always show, even if 0
         'Total Rs': ''
     },
     {
         'Particulars': 'Difference',
         'Rs': '',
-        'Total Rs': f'{abs(intermediate_difference)}' if intermediate_difference != 0 else ''
+        'Total Rs': f'{abs(intermediate_difference)}'  # Always show, even if 0
     },
     {
         'Particulars': 'Difference in Reconciliation',
         'Rs': '',
-        'Total Rs': '0' if abs(final_difference - intermediate_difference) < 0.01 else f'{abs(final_difference - intermediate_difference)}'
+        'Total Rs': f'{abs(final_difference - intermediate_difference)}'  # Always show
     }
 ]
                 
@@ -1161,4 +1161,5 @@ def example_usage():
     print("\n" + results['reconciliation_statement'])
     
     return results
+
 
