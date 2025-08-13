@@ -65,8 +65,8 @@ if uploaded_file:
     numeric_config = {}
     for col in selected_numeric_columns:
         st.markdown(f"**Column: `{col}`**")
-        col_min = st.number_input(f"Minimum value for `{col}`", key=f"min_{col}", value=0.0)
-        col_max = st.number_input(f"Maximum value for `{col}`", key=f"max_{col}", value=1000000.0)
+        col_min = st.number_input(f"Minimum value for `{col}`", key=f"min_{col}", value=0)
+        col_max = st.number_input(f"Maximum value for `{col}`", key=f"max_{col}", value=1000000)
         numeric_config[col] = {"min": col_min, "max": col_max}
 
     # Date column rules
@@ -132,3 +132,4 @@ if uploaded_file:
         profile = quick_data_profile(df)
         st.subheader("📊 Data Profile")
         st.json(profile)
+
